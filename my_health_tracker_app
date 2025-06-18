@@ -1,0 +1,241 @@
+import tkinter as tk
+from tkinter import messagebox
+import os
+import hashlib
+
+root = tk.Tk()
+root.title("Health Tracker App")
+root.geometry("420x550")
+root.configure(bg="#f0f4f8")
+
+user_file = "users.txt"
+is_signup_mode = True
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def load_users():
+    users = {}
+    if os.path.exists(user_file):
+        with open(user_file, "r") as f:
+            for line in f:
+                email, hashed_pw = line.strip().split(",", 1)
+                users[email] = hashed_pw
+    return users
+
+def save_user(email, password):
+    hashed_pw = hash_password(password)
+    with open(user_file, "a") as f:
+        f.write(f"{email},{hashed_pw}\n")
+
+def toggle_mode():
+    global is_signup_mode
+    is_signup_mode = not is_signup_mode
+    update_mode_ui()
+
+def update_mode_ui():
+    if is_signup_mode:
+        heading_label.config(text="Create Account")
+        confirm_pw_label.pack()
+        entry_confirm.pack()
+        age_label.pack()
+        age_menu.pack()
+        toggle_button.config(text="Already have an account? Log In")
+        submit_button.config(text="Continue")
+    else:
+        heading_label.config(text="Log In")
+        confirm_pw_label.pack_forget()
+        entry_confirm.pack_forget()
+        age_label.pack_forget()
+        age_menu.pack_forget()
+        toggle_button.config(text="Don't have an account? Sign Up")
+        submit_button.config(text="Log In")
+
+def validate_and_continue():
+    email = entry_email.get().strip()
+    pw = entry_password.get()
+    confirm = entry_confirm.get()
+    users = load_users()
+
+    if not email or not pw:
+        messagebox.showwarning("Missing Info", "Email and password are required.")
+        return
+
+    if is_signup_mode:
+        if not confirm:
+            messagebox.showwarning("Missing Info", "Please confirm your password.")
+            return
+        if pw != confirm:
+            messagebox.showerror("Password Error", "Passwords do not match.")
+            return
+        if len(pw) < 8 or not any(char.isdigit() for char in pw):
+            messagebox.showerror("Weak Password", "Password must be at least 8 characters and include a number.")
+            return
+        if email in users:
+            messagebox.showerror("Error", "An account with this email already exists.")
+            return
+        save_user(email, pw)
+        messagebox.showinfo("Account Created", "Your account has been created securely!")
+        show_main_menu()
+    else:
+        if email not in users or users[email] != hash_password(pw):
+            messagebox.showerror("Login Failed", "Incorrect email or password.")
+            return
+        messagebox.showinfo("Login Success", f"Welcome back, {email}!")
+        show_main_menu()
+
+welcome_frame = tk.Frame(root, bg="#f0f4f8")
+
+heading_label = tk.Label(welcome_frame, text="Create Account", font=("Arial", 16, "bold"), bg="#f0f4f8")
+heading_label.pack(pady=10)
+
+tk.Label(welcome_frame, text="Email:", font=("Arial", 12), bg="#f0f4f8").pack()
+entry_email = tk.Entry(welcome_frame, font=("Arial", 12))
+entry_email.pack(pady=5)
+
+tk.Label(welcome_frame, text="Password:", font=("Arial", 12), bg="#f0f4f8").pack()
+entry_password = tk.Entry(welcome_frame, show="*", font=("Arial", 12))
+entry_password.pack(pady=5)
+
+confirm_pw_label = tk.Label(welcome_frame, text="Confirm Password:", font=("Arial", 12), bg="#f0f4f8")
+entry_confirm = tk.Entry(welcome_frame, show="*", font=("Arial", 12))
+confirm_pw_label.pack()
+entry_confirm.pack(pady=5)
+
+def toggle_password():
+    if show_var.get():
+        entry_password.config(show="")
+        entry_confirm.config(show="")
+    else:
+        entry_password.config(show="*")
+        entry_confirm.config(show="*")
+
+show_var = tk.BooleanVar()
+tk.Checkbutton(welcome_frame, text="Show Password", variable=show_var, command=toggle_password,
+               bg="#f0f4f8", font=("Arial", 10)).pack()
+
+age_label = tk.Label(welcome_frame, text="Select Age:", font=("Arial", 12), bg="#f0f4f8")
+age_var = tk.StringVar(value="18")
+age_menu = tk.OptionMenu(welcome_frame, age_var, *[str(i) for i in range(13, 101)])
+age_menu.config(font=("Arial", 12))
+age_label.pack()
+age_menu.pack(pady=5)
+
+submit_button = tk.Button(welcome_frame, text="Continue", bg="#4caf50", fg="white", font=("Arial", 12),
+                          command=validate_and_continue)
+submit_button.pack(pady=10)
+
+toggle_button = tk.Button(welcome_frame, text="Already have an account? Log In", font=("Arial", 10),
+                          command=toggle_mode, bg="#f0f4f8", fg="blue", bd=0)
+toggle_button.pack()
+
+welcome_frame.pack(pady=20)
+
+def show_main_menu():
+    welcome_frame.pack_forget()
+    bmi_frame.pack_forget()
+    calorie_frame.pack_forget()
+    menu_frame.pack(pady=20)
+
+menu_frame = tk.Frame(root, bg="#f0f4f8")
+
+tk.Label(menu_frame, text="Health Dashboard", font=("Arial", 16, "bold"), bg="#f0f4f8").pack(pady=10)
+tk.Button(menu_frame, text="BMI Calculator", width=20, font=("Arial", 12),
+          command=lambda: switch_view(menu_frame, bmi_frame)).pack(pady=10)
+
+tk.Button(menu_frame, text="Calorie Tracker", width=20, font=("Arial", 12),
+          command=lambda: switch_view(menu_frame, calorie_frame)).pack(pady=10)
+
+def switch_view(hide, show):
+    hide.pack_forget()
+    show.pack(pady=20)
+
+bmi_frame = tk.Frame(root, bg="#f0f4f8")
+
+tk.Label(bmi_frame, text="BMI Calculator", font=("Arial", 16, "bold"), bg="#f0f4f8").grid(row=0, column=0, columnspan=2, pady=10)
+
+tk.Label(bmi_frame, text="Weight (kg):", font=("Arial", 12), bg="#f0f4f8").grid(row=1, column=0, sticky="e", padx=10, pady=5)
+entry_weight = tk.Entry(bmi_frame, font=("Arial", 12))
+entry_weight.grid(row=1, column=1)
+
+tk.Label(bmi_frame, text="Height:", font=("Arial", 12), bg="#f0f4f8").grid(row=2, column=0, sticky="e", padx=10, pady=5)
+entry_height = tk.Entry(bmi_frame, font=("Arial", 12))
+entry_height.grid(row=2, column=1)
+
+tk.Label(bmi_frame, text="Height Unit:", font=("Arial", 12), bg="#f0f4f8").grid(row=3, column=0, sticky="e", padx=10, pady=5)
+unit_var = tk.StringVar(value="cm")
+unit_menu = tk.OptionMenu(bmi_frame, unit_var, "cm", "inches")
+unit_menu.config(font=("Arial", 12))
+unit_menu.grid(row=3, column=1)
+
+def calculate_bmi(unit):
+    try:
+        weight = float(entry_weight.get())
+        height = float(entry_height.get())
+        if unit == "inches":
+            height *= 2.54
+        height /= 100
+        bmi = weight / (height ** 2)
+        result = f"Your BMI is {bmi:.2f} - "
+        if bmi < 18.5:
+            result += "Underweight"
+        elif 18.5 <= bmi < 24.9:
+            result += "Normal weight"
+        elif 25 <= bmi < 29.9:
+            result += "Overweight"
+        else:
+            result += "Obesity"
+        label_result.config(text=result)
+    except ValueError:
+        messagebox.showerror("Input error", "Please enter valid numbers.")
+
+tk.Button(bmi_frame, text="Calculate BMI", bg="#4caf50", fg="white", font=("Arial", 12),
+          command=lambda: calculate_bmi(unit_var.get())).grid(row=4, column=0, columnspan=2, pady=15)
+
+label_result = tk.Label(bmi_frame, text="", font=("Arial", 12, "bold"), bg="#f0f4f8")
+label_result.grid(row=5, column=0, columnspan=2)
+
+tk.Button(bmi_frame, text="Back", font=("Arial", 10), command=lambda: switch_view(bmi_frame, menu_frame)).grid(row=6, column=0, columnspan=2, pady=10)
+
+calorie_frame = tk.Frame(root, bg="#f0f4f8")
+
+tk.Label(calorie_frame, text="Calorie Tracker", font=("Arial", 16, "bold"), bg="#f0f4f8").pack(pady=10)
+
+foods = {
+    "Apple": 52,
+    "Banana": 89,
+    "Rice (100g)": 130,
+    "Chicken (100g)": 239,
+    "Egg": 78,
+    "Bread Slice": 66,
+}
+
+selected_food = tk.StringVar(value="Apple")
+tk.OptionMenu(calorie_frame, selected_food, *foods.keys()).pack(pady=5)
+
+tk.Label(calorie_frame, text="Quantity:", font=("Arial", 12), bg="#f0f4f8").pack()
+qty_entry = tk.Entry(calorie_frame, font=("Arial", 12))
+qty_entry.pack(pady=5)
+
+calorie_total = 0
+total_label = tk.Label(calorie_frame, text="Total: 0 kcal", font=("Arial", 12, "bold"), bg="#f0f4f8")
+total_label.pack(pady=10)
+
+def add_calories():
+    global calorie_total
+    try:
+        food = selected_food.get()
+        qty = float(qty_entry.get())
+        cal = foods[food] * qty
+        calorie_total += cal
+        total_label.config(text=f"Total: {int(calorie_total)} kcal")
+    except:
+        messagebox.showerror("Input error", "Please enter a valid quantity.")
+
+tk.Button(calorie_frame, text="Add", font=("Arial", 12), command=add_calories).pack(pady=5)
+tk.Button(calorie_frame, text="Back", font=("Arial", 10), command=lambda: switch_view(calorie_frame, menu_frame)).pack(pady=10)
+
+update_mode_ui()
+root.mainloop()
+
+
